@@ -2,14 +2,20 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 
-func Send() {
+func Send(filePath string) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		fmt.Println("Failed to read file %s", filePath)
+	}
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
@@ -30,7 +36,7 @@ func Send() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	body := "Hello World!"
+	body := data
 	err = ch.PublishWithContext(ctx,
 		"",     // exchange
 		q.Name, // routing key

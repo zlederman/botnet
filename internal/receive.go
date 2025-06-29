@@ -1,43 +1,54 @@
 package internal
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"os/exec"
-	"strconv"
+	"path/filepath"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func saveScriptToTempDir(rawScript string) (string, error) {
-	tempDir, err := os.MkdirTemp("", "scripts_*")
+	tempDir, err := os.MkdirTemp("","*")
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("Created Temp Directory %s\n", tempDir)
+	fmt.Println("Created Temp Directory ", tempDir)
 
 
 	hasher := sha256.New()
 	hasher.Write([]byte(rawScript))
 	hashBytes := hasher.Sum(nil)
 
-	hashString := hex.EncodeToString(hashBytes)
+	hashString := hex.EncodeToString(hashBytes)[0:10]
 
 	filepath := filepath.Join(tempDir, "script_" + hashString + ".py")
 	err = os.WriteFile(filepath, []byte(rawScript), 0644)
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("Successfully wrote to %s", filepath)
+	fmt.Println("Successfully wrote to ", filepath)
 	return filepath, nil
 }
 
 func executeScript(scriptPath string) {
 	cmd := exec.Command("uv", "run", scriptPath)
-	
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	err := cmd.Run()
+	if err != nil {
+		fmt.Printf("Command failed with error %v\n Output:\n %s\n", err, out.String())
+		return
+	}
+	result := out.String()
+	fmt.Println("Command Output:\n", result)	
+
 }
 
 func Receive() {
@@ -80,6 +91,7 @@ func Receive() {
 				log.Printf("Error Trying to Save Script %v\n", err)
 				return
 			}
+			executeScript(filePath)
 
 		}
 	}()
